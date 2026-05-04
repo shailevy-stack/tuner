@@ -384,9 +384,16 @@
 
 <div class="main">
 
-  <div class="mode-toggle">
-    <button class="mode-btn active" id="btn-play">Play</button>
-    <button class="mode-btn listen" id="btn-listen">Listen</button>
+  <div style="display:flex;gap:8px;align-items:stretch;">
+    <div class="mode-toggle" style="flex:1">
+      <button class="mode-btn active" id="btn-play">Play</button>
+      <button class="mode-btn listen" id="btn-listen">Listen</button>
+    </div>
+    <button id="reload-btn" title="Reload" style="
+      background:none;border:1px solid var(--border);border-radius:2px;
+      color:var(--muted);font-size:15px;width:38px;cursor:pointer;
+      transition:all 0.15s;flex-shrink:0;
+    " onclick="location.reload()">↺</button>
   </div>
 
   <div class="card">
@@ -592,8 +599,8 @@ async function startListening() {
     micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     const source = ctx.createMediaStreamSource(micStream);
     analyser = ctx.createAnalyser();
-    analyser.fftSize = 4096;
-    analyser.smoothingTimeConstant = 0.6;
+    analyser.fftSize = 8192;
+    analyser.smoothingTimeConstant = 0.0;
     listenBuf = new Float32Array(analyser.fftSize);
     source.connect(analyser);
     dot.className = 'mic-dot active';
@@ -614,26 +621,60 @@ function stopListening() {
 }
 
 function detectPitch(buf, sampleRate) {
+  // RMS gate — lowered to catch quieter/higher strings
   let rms = 0;
   for (let i = 0; i < buf.length; i++) rms += buf[i]*buf[i];
-  if (Math.sqrt(rms/buf.length) < 0.01) return null;
+  if (Math.sqrt(rms/buf.length) < 0.004) return null;
+
   const n = buf.length;
+
+  // Normalized autocorrelation (helps with octave errors)
+  // Compute sum of squares for normalization
   const corr = new Float32Array(n);
-  for (let lag = 0; lag < n; lag++) {
-    let s = 0; for (let i = 0; i < n-lag; i++) s += buf[i]*buf[i+lag]; corr[lag] = s;
+  let sumSq = 0;
+  for (let i = 0; i < n; i++) sumSq += buf[i]*buf[i];
+
+  for (let lag = 0; lag < n/2; lag++) {
+    let s = 0;
+    for (let i = 0; i < n-lag; i++) s += buf[i]*buf[i+lag];
+    // Normalize so corr[0] = 1
+    corr[lag] = s / (sumSq || 1);
   }
-  let d = 1; while (d < n && corr[d] > 0) d++;
+
+  // Find first dip then first peak
+  let d = 1; while (d < n/2 && corr[d] > 0) d++;
   let maxVal = -1, maxIdx = -1;
-  for (let i = d; i < n; i++) { if (corr[i] > maxVal) { maxVal = corr[i]; maxIdx = i; } }
-  if (maxIdx === -1 || maxVal < corr[0] * 0.5) return null;
-  let refined = maxIdx;
-  if (maxIdx > 0 && maxIdx < n-1) {
-    const p = corr[maxIdx-1], nx = corr[maxIdx+1];
-    refined = maxIdx + (nx-p)/(2*(2*maxVal-p-nx));
+  for (let i = d; i < n/2; i++) {
+    if (corr[i] > maxVal) { maxVal = corr[i]; maxIdx = i; }
   }
-  const freq = sampleRate / refined;
-  return (freq < 60 || freq > 1400) ? null : freq;
+
+  // Confidence check — normalized corr should be reasonably strong
+  if (maxIdx === -1 || maxVal < 0.35) return null;
+
+  // Parabolic interpolation
+  let refined = maxIdx;
+  if (maxIdx > 0 && maxIdx < n/2-1) {
+    const p = corr[maxIdx-1], nx = corr[maxIdx+1];
+    const denom = 2*(2*maxVal-p-nx);
+    if (Math.abs(denom) > 1e-6) refined = maxIdx + (nx-p)/denom;
+  }
+
+  let freq = sampleRate / refined;
+
+  // Octave correction: check if 2× frequency has a stronger normalized match
+  // (fixes sub-harmonic lock which makes high E appear as E3 instead of E4)
+  const lagHalf = Math.round(refined / 2);
+  if (lagHalf > 1 && lagHalf < n/2) {
+    const corrHalf = corr[lagHalf];
+    if (corrHalf > maxVal * 0.9) freq *= 2;
+  }
+
+  return (freq < 60 || freq > 1500) ? null : freq;
 }
+
+let stableCount   = 0;
+let lastRawFreq   = null;
+const STABLE_FRAMES = 3; // require N consistent frames before updating display
 
 function runPitchDetection() {
   function tick() {
@@ -641,8 +682,25 @@ function runPitchDetection() {
     if (!analyser) return;
     analyser.getFloatTimeDomainData(listenBuf);
     const freq = detectPitch(listenBuf, getCtx().sampleRate);
-    if (freq === null) { if (smoothedFreq !== null) { smoothedFreq = null; resetListenDisplay(); } return; }
-    smoothedFreq = smoothedFreq === null ? freq : smoothedFreq * 0.8 + freq * 0.2;
+
+    if (freq === null) {
+      stableCount = 0; lastRawFreq = null;
+      if (smoothedFreq !== null) { smoothedFreq = null; resetListenDisplay(); }
+      return;
+    }
+
+    // Stability gate: new reading must be within 10% of last to count
+    if (lastRawFreq !== null && Math.abs(freq - lastRawFreq) / lastRawFreq > 0.10) {
+      stableCount = 1; lastRawFreq = freq;
+      return; // discard jitter frame
+    }
+    lastRawFreq = freq;
+    stableCount = Math.min(stableCount + 1, STABLE_FRAMES);
+
+    if (stableCount < STABLE_FRAMES) return; // wait for stable lock
+
+    // Tight smoothing once locked
+    smoothedFreq = smoothedFreq === null ? freq : smoothedFreq * 0.6 + freq * 0.4;
     updateListenDisplay(smoothedFreq);
   }
   tick();
