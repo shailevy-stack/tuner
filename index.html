@@ -29,7 +29,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 32px 20px 56px;
+    padding: 40px 20px 60px;
     overflow-x: hidden;
   }
 
@@ -42,45 +42,37 @@
     pointer-events: none;
   }
 
-  header { text-align: center; margin-bottom: 24px; }
+  header {
+    text-align: center;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    width: 100%;
+    max-width: 560px;
+  }
 
   h1 {
     font-family: 'Instrument Serif', serif;
-    font-size: clamp(1.8rem, 5vw, 2.8rem);
+    font-size: clamp(2.2rem, 6vw, 3.2rem);
     font-weight: 400; color: var(--text); line-height: 1;
+    flex: 1;
   }
   h1 em { font-style: italic; color: var(--accent); }
+
+  #reload-btn {
+    background: none; border: 1px solid var(--border); border-radius: 2px;
+    color: var(--muted); font-size: 16px; width: 36px; height: 36px;
+    cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #reload-btn:hover { color: var(--accent); border-color: var(--accent); }
 
   .main {
     width: 100%; max-width: 560px;
     display: flex; flex-direction: column; gap: 14px;
   }
-
-  /* ── MODE TOGGLE + RELOAD ── */
-  .top-bar { display: flex; gap: 8px; align-items: stretch; }
-
-  .mode-toggle {
-    display: flex; flex: 1;
-    border: 1px solid var(--border); border-radius: 2px; overflow: hidden;
-  }
-  .mode-btn {
-    flex: 1; padding: 10px;
-    background: none; border: none; color: var(--muted);
-    font-family: 'DM Mono', monospace; font-size: 11px;
-    letter-spacing: 0.18em; text-transform: uppercase;
-    cursor: pointer; transition: all 0.2s;
-  }
-  .mode-btn + .mode-btn { border-left: 1px solid var(--border); }
-  .mode-btn:hover { color: var(--text); }
-  .mode-btn.active { color: var(--bg); background: var(--accent); }
-  .mode-btn.active.listen { background: var(--accent2); }
-
-  #reload-btn {
-    background: none; border: 1px solid var(--border); border-radius: 2px;
-    color: var(--muted); font-size: 16px; width: 40px;
-    cursor: pointer; transition: all 0.15s; flex-shrink: 0;
-  }
-  #reload-btn:hover { color: var(--accent); border-color: var(--accent); }
 
   /* ── CARD ── */
   .card {
@@ -189,29 +181,29 @@
     border-right: 1px solid var(--border);
     position: relative; overflow: hidden;
     transition: background 0.15s;
+    cursor: pointer;
   }
   .string-col:last-child { border-right: none; }
+  .string-col:hover { background: var(--surface2); }
 
-  /* Play mode */
-  .string-col.play-mode { cursor: pointer; }
-  .string-col.play-mode:hover { background: var(--surface2); }
-  .string-col.play-mode.playing { background: rgba(200,169,110,0.07); }
-  .string-col.play-mode.playing .note-name { color: var(--accent); }
-  .string-col.play-mode.playing .note-freq { color: rgba(200,169,110,0.5); }
-  .string-col.play-mode.playing::after {
+  /* Playing state */
+  .string-col.playing { background: rgba(200,169,110,0.07); }
+  .string-col.playing .note-name { color: var(--accent); }
+  .string-col.playing .note-freq { color: rgba(200,169,110,0.5); }
+  .string-col.playing::after {
     content: ''; position: absolute; inset: 0;
     box-shadow: inset 0 0 0 1px rgba(200,169,110,0.2);
     animation: glow 1.6s ease-in-out infinite;
   }
   @keyframes glow { 0%,100%{opacity:.2} 50%{opacity:1} }
 
-  /* Listen mode column states */
-  .string-col.listen-mode.detected-in-tune { background: rgba(126,200,169,0.1); }
-  .string-col.listen-mode.detected-in-tune .note-name { color: var(--accent2); }
-  .string-col.listen-mode.detected-flat,
-  .string-col.listen-mode.detected-sharp { background: rgba(200,110,110,0.07); }
-  .string-col.listen-mode.detected-flat .note-name,
-  .string-col.listen-mode.detected-sharp .note-name { color: var(--red); }
+  /* Detected states (listen) */
+  .string-col.detected-in-tune { background: rgba(126,200,169,0.1); }
+  .string-col.detected-in-tune .note-name { color: var(--accent2); }
+  .string-col.detected-flat,
+  .string-col.detected-sharp { background: rgba(200,110,110,0.07); }
+  .string-col.detected-flat .note-name,
+  .string-col.detected-sharp .note-name { color: var(--red); }
 
   .string-inner {
     display: flex; flex-direction: column;
@@ -230,7 +222,7 @@
   .wave-canvas { width: 32px; height: 10px; opacity: 0; transition: opacity 0.25s; display: block; }
   .string-col.playing .wave-canvas { opacity: 1; }
 
-  /* Per-column tuning bar (always present, visible in both modes) */
+  /* Per-column tuning bar */
   .col-tuning-bar {
     height: 4px; background: var(--surface2); position: relative;
   }
@@ -246,41 +238,13 @@
     left: calc(50% - 1px); width: 2px;
     background: var(--border); opacity: 0.5;
   }
-  /* Cursor colors by state */
   .string-col.detected-in-tune .col-cursor { background: var(--accent2); }
   .string-col.detected-flat .col-cursor,
   .string-col.detected-sharp .col-cursor { background: var(--red); }
 
-  /* ── STATUS ROW (below grid, always visible) ── */
-  .status-row {
-    display: flex; align-items: center; gap: 10px;
-    padding: 9px 16px; border-top: 1px solid var(--border);
-    min-height: 36px;
-  }
-
-  .status-dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    flex-shrink: 0; transition: background 0.3s;
-  }
-  /* Play mode: steady gold */
-  .status-dot.play { background: var(--accent); }
-  /* Listen: pulsing teal or error red */
-  .status-dot.listen-waiting { background: var(--muted); }
-  .status-dot.listen-active {
-    background: var(--accent2);
-    animation: mic-pulse 1s ease-in-out infinite;
-  }
-  .status-dot.listen-error { background: var(--red); }
-  @keyframes mic-pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
-
-  .status-text {
-    font-size: 10px; color: var(--muted); letter-spacing: 0.07em; flex: 1;
-  }
-
   /* ── NEEDLE BAR ── */
   .needle-bar-wrap {
     border-top: 1px solid var(--border);
-    padding: 0;
     background: var(--surface);
   }
   #needle-canvas {
@@ -366,18 +330,10 @@
 
 <header>
   <h1>Guitar <em>Tuner</em></h1>
+  <button id="reload-btn" title="Reload" onclick="location.reload()">↺</button>
 </header>
 
 <div class="main">
-
-  <div class="top-bar">
-    <div class="mode-toggle">
-      <button class="mode-btn active" id="btn-play">Play</button>
-      <button class="mode-btn listen" id="btn-listen">Listen</button>
-    </div>
-    <button id="reload-btn" title="Reload" onclick="location.reload()">↺</button>
-  </div>
-
   <div class="card">
 
     <div class="row">
@@ -420,15 +376,8 @@
 
     <div class="strings-grid" id="strings-grid"></div>
 
-    <!-- Needle tuning bar -->
     <div class="needle-bar-wrap">
-      <canvas id="needle-canvas" height="36"></canvas>
-    </div>
-
-    <!-- Always-visible status row -->
-    <div class="status-row">
-      <div class="status-dot play" id="status-dot"></div>
-      <span class="status-text" id="status-text">Press a string to play a reference tone</span>
+      <canvas id="needle-canvas" height="40"></canvas>
     </div>
 
   </div>
@@ -437,19 +386,19 @@
     <div class="preset-tabs" id="preset-tabs"></div>
     <div id="preset-content"></div>
   </div>
-
 </div>
 
 <script>
 // ── Constants ────────────────────────────────────────────────────
-const NOTE_NAMES    = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-const FADE_IN       = 0.025;
-const FADE_OUT      = 0.09;
-const DEFAULT_A4    = 440;
-const SLIDER_MIN    = 400;
-const SLIDER_MAX    = 480;
-const CENTS_IN_TUNE = 5;
-const CENTS_RANGE   = 100;
+const NOTE_NAMES      = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const FADE_IN         = 0.025;
+const FADE_OUT        = 0.09;
+const DEFAULT_A4      = 440;
+const SLIDER_MIN      = 400;
+const SLIDER_MAX      = 480;
+const CENTS_ENTER     = 3;   // enter green zone
+const CENTS_EXIT      = 6;   // leave green zone (hysteresis)
+const CENTS_RANGE     = 100;
 
 const DEFAULT_PRESETS = [
   { id:'std',   name:'Standard E', builtin:true,
@@ -475,15 +424,22 @@ let audioCtx          = null;
 let playingIdx        = null;
 let playingNode       = null;
 let waveAnimId        = null;
-let mode              = 'play';
+
+// Mic / listen state
 let micStream         = null;
 let analyser          = null;
 let listenAnimId      = null;
 let listenBuf         = null;
 let smoothedFreq      = null;
-let listeningActive   = false;
 let stableCount       = 0;
 let lastRawFreq       = null;
+let isInTune          = false; // hysteresis state
+
+// Needle
+let needlePos         = 0;
+let needleTarget      = 0;
+let needleActive      = false;
+let needleAnimId      = null;
 
 // ── Helpers ──────────────────────────────────────────────────────
 function noteFreq(name, octave, refA4, mult) {
@@ -493,24 +449,14 @@ function noteFreq(name, octave, refA4, mult) {
 function freqToCents(det, tgt) { return 1200 * Math.log2(det / tgt); }
 
 function findClosestString(freq) {
-  // Build candidate list: for each string, also consider octave multiples
-  // but strongly prefer the actual string octave.
-  // This prevents high E (E4) from being misread as low E (E2).
   let best = null, bestScore = Infinity;
-
   activeTuning.forEach((s, i) => {
-    // Only check the exact string octave and ±1 octave (not ±2)
     for (let sh = -1; sh <= 1; sh++) {
       const target = noteFreq(s.note, s.oct + sh, a4, 1);
       const cents  = freqToCents(freq, target);
-      const absCents = Math.abs(cents);
-      // Add a penalty for octave shifts — prefer the nominal octave
-      const penalty = sh === 0 ? 0 : 50;
-      const score = absCents + penalty;
-      if (score < bestScore) {
-        bestScore = score;
-        best = { idx:i, string:s, target, cents };
-      }
+      // Penalise octave-shifted matches so we prefer the actual string octave
+      const score  = Math.abs(cents) + (sh !== 0 ? 50 : 0);
+      if (score < bestScore) { bestScore = score; best = { idx:i, string:s, target, cents }; }
     }
   });
   return best;
@@ -521,7 +467,7 @@ function getCtx() {
   return audioCtx;
 }
 
-// ── Play mode ────────────────────────────────────────────────────
+// ── Play ─────────────────────────────────────────────────────────
 function perceivedGain(freq) {
   const f = Math.max(20, freq);
   if (f < 200)  return Math.min(0.9, 0.3 + 0.6 * Math.log10(f/20) / Math.log10(10));
@@ -578,71 +524,57 @@ function startWave(idx) {
   draw();
 }
 
-// ── Listen mode ──────────────────────────────────────────────────
-async function startListening() {
-  listeningActive = true;
-  setStatusDot('listen-waiting');
-  setStatusText('Requesting microphone…');
+// ── String tap logic (unified play/listen) ───────────────────────
+function onStringTap(idx) {
+  if (playingIdx === idx) {
+    // currently playing this string — stop and return to listen
+    stopCurrent();
+    resetListenDisplay();
+    needleTarget = 0; needleActive = false;
+  } else {
+    // stop anything playing, play this string
+    stopCurrent();
+    resetListenDisplay();
+    needleTarget = 0; needleActive = false;
+    playString(idx);
+  }
+}
+
+// ── Mic / pitch detection ────────────────────────────────────────
+async function startMic() {
   try {
     const ctx = getCtx();
     if (ctx.state === 'suspended') ctx.resume();
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-    if (!listeningActive) { stream.getTracks().forEach(t => t.stop()); return; }
-    micStream = stream;
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     const source = ctx.createMediaStreamSource(micStream);
     analyser = ctx.createAnalyser();
     analyser.fftSize = 8192;
     analyser.smoothingTimeConstant = 0.0;
     listenBuf = new Float32Array(analyser.fftSize);
     source.connect(analyser);
-    setStatusDot('listen-active');
-    setStatusText('Listening — play a string');
     runPitchDetection();
   } catch(e) {
-    setStatusDot('listen-error');
-    setStatusText('Microphone access denied');
+    console.warn('Mic access denied:', e);
   }
 }
 
-function stopListening() {
-  listeningActive = false;
-  cancelAnimationFrame(listenAnimId); listenAnimId = null;
-  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
-  analyser = null; smoothedFreq = null; stableCount = 0; lastRawFreq = null;
-  resetListenDisplay();
-}
-
-// ── Pitch detection (MPM-style normalized autocorrelation + octave fix) ──
 function detectPitch(buf, sampleRate) {
   const n = buf.length;
-
-  // RMS gate
   let rms = 0;
   for (let i = 0; i < n; i++) rms += buf[i]*buf[i];
   if (Math.sqrt(rms/n) < 0.004) return null;
 
-  // Normalized Square Difference Function (NSDF) — better than plain autocorr
-  // nsdf[lag] = 2 * acf[lag] / (r[0] + r[lag]) where r[k] = sum(x[i]^2, i=k..n)
   const half = Math.floor(n / 2);
-  const acf  = new Float32Array(half);
-  const r    = new Float32Array(half + 1); // running sum of squares from right
-
-  // Build cumulative sum-of-squares from right
-  r[half] = 0;
-  for (let i = half - 1; i >= 0; i--) r[i] = r[i+1] + buf[i]*buf[i];
-
-  // ACF and NSDF
   const nsdf = new Float32Array(half);
+  let r0 = 0;
+  for (let i = 0; i < n; i++) r0 += buf[i]*buf[i];
+
   for (let lag = 0; lag < half; lag++) {
     let s = 0;
-    for (let i = 0; i < half; i++) s += buf[i] * buf[i+lag];
-    acf[lag] = s;
-    const denom = r[0] + r[lag] - (lag > 0 ? 2*acf[0] - 2*s : 0);
-    // simpler normalization: just divide by r[0]
-    nsdf[lag] = r[0] > 0 ? s / r[0] : 0;
+    for (let i = 0; i < half; i++) s += buf[i] * buf[i + lag];
+    nsdf[lag] = r0 > 0 ? s / r0 : 0;
   }
 
-  // Find all peaks in NSDF after first zero crossing
   let d = 1; while (d < half && nsdf[d] > 0) d++;
   let maxVal = -1, maxIdx = -1;
   for (let i = d; i < half - 1; i++) {
@@ -652,36 +584,28 @@ function detectPitch(buf, sampleRate) {
   }
   if (maxIdx === -1 || maxVal < 0.3) return null;
 
-  // Parabolic interpolation for precision
+  // Parabolic interpolation
   let refined = maxIdx;
   if (maxIdx > 0 && maxIdx < half - 1) {
     const p = nsdf[maxIdx-1], nx = nsdf[maxIdx+1];
-    const denom = 2*(2*maxVal - p - nx);
-    if (Math.abs(denom) > 1e-8) refined = maxIdx + (nx - p) / denom;
+    const dn = 2*(2*maxVal - p - nx);
+    if (Math.abs(dn) > 1e-8) refined = maxIdx + (nx - p) / dn;
   }
 
   let freq = sampleRate / refined;
 
-  // ── Octave error correction ──
-  // High E (E4, ~330 Hz) is often detected at half frequency (~165 Hz).
-  // Check if double the frequency has a strong NSDF match too.
-  // If so, prefer the higher octave — guitar never has fundamentals below ~75 Hz
-  // except low E, which is well above 160 Hz anyway.
+  // Octave correction — prefer higher octave when sub-harmonic peak is strong
   const lagHalf = Math.round(refined / 2);
-  if (lagHalf >= 2 && lagHalf < half) {
-    if (nsdf[lagHalf] > 0.45) {
-      // Double the freq candidate — parabolic refine at half-lag too
-      let refinedHalf = lagHalf;
-      if (lagHalf > 0 && lagHalf < half - 1) {
-        const p = nsdf[lagHalf-1], nx = nsdf[lagHalf+1];
-        const d2 = 2*(2*nsdf[lagHalf] - p - nx);
-        if (Math.abs(d2) > 1e-8) refinedHalf = lagHalf + (nx - p) / d2;
-      }
-      freq = sampleRate / refinedHalf;
+  if (lagHalf >= 2 && lagHalf < half && nsdf[lagHalf] > 0.45) {
+    let rH = lagHalf;
+    if (lagHalf > 0 && lagHalf < half - 1) {
+      const p = nsdf[lagHalf-1], nx = nsdf[lagHalf+1];
+      const dn = 2*(2*nsdf[lagHalf] - p - nx);
+      if (Math.abs(dn) > 1e-8) rH = lagHalf + (nx - p) / dn;
     }
+    freq = sampleRate / rH;
   }
 
-  // Reasonable guitar range
   return (freq < 70 || freq > 1400) ? null : freq;
 }
 
@@ -690,17 +614,18 @@ const STABLE_FRAMES = 3;
 function runPitchDetection() {
   function tick() {
     listenAnimId = requestAnimationFrame(tick);
-    if (!analyser) return;
+    // Don't process while a reference tone is playing
+    if (playingNode || !analyser) return;
+
     analyser.getFloatTimeDomainData(listenBuf);
     const freq = detectPitch(listenBuf, getCtx().sampleRate);
 
     if (freq === null) {
       stableCount = 0; lastRawFreq = null;
-      if (smoothedFreq !== null) { smoothedFreq = null; resetListenDisplay(); }
+      if (smoothedFreq !== null) { smoothedFreq = null; resetListenDisplay(); needleActive = false; needleTarget = 0; }
       return;
     }
 
-    // Stability gate: discard frames that jump >10% from last
     if (lastRawFreq !== null && Math.abs(freq - lastRawFreq) / lastRawFreq > 0.10) {
       stableCount = 1; lastRawFreq = freq; return;
     }
@@ -714,126 +639,26 @@ function runPitchDetection() {
   tick();
 }
 
-// ── Display ──────────────────────────────────────────────────────
-function setStatusDot(cls) {
-  document.getElementById('status-dot').className = 'status-dot ' + cls;
-}
-function setStatusText(txt) {
-  document.getElementById('status-text').textContent = txt;
-}
-
-// ── Needle bar ───────────────────────────────────────────────────
-let needlePos    = 0;    // current smoothed position (-1 to +1)
-let needleTarget = 0;
-let needleAnimId = null;
-let needleActive = false;
-
-function startNeedleLoop() {
-  if (needleAnimId) return;
-  function loop() {
-    needleAnimId = requestAnimationFrame(loop);
-    needlePos += (needleTarget - needlePos) * 0.12;
-    drawNeedle(needlePos, needleActive);
-  }
-  loop();
-}
-
-function stopNeedleLoop() {
-  cancelAnimationFrame(needleAnimId);
-  needleAnimId = null;
-  drawNeedle(0, false);
-}
-
-function drawNeedle(pos, active) {
-  const canvas = document.getElementById('needle-canvas');
-  if (!canvas) return;
-  const W = canvas.offsetWidth || 300;
-  if (canvas.width !== W) canvas.width = W;
-  const H = canvas.height;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, W, H);
-
-  const cx = W / 2;
-  const barH = 4;
-  const barY = H / 2 - barH / 2;
-  const barMargin = 20;
-  const barW = W - barMargin * 2;
-
-  // Background track
-  ctx.fillStyle = '#1f1f1f';
-  ctx.beginPath();
-  ctx.roundRect(barMargin, barY, barW, barH, 2);
-  ctx.fill();
-
-  if (!active) {
-    // Idle: just a center tick
-    ctx.fillStyle = '#2a2a2a';
-    ctx.fillRect(cx - 1, barY - 2, 2, barH + 4);
-    return;
-  }
-
-  // Color gradient fill from center to needle
-  const needleX = cx + pos * (barW / 2);
-  const absFrac = Math.abs(pos); // 0=center, 1=edge
-  const inTune  = absFrac <= (CENTS_IN_TUNE / CENTS_RANGE);
-
-  // Hue: green (120°) at center → red (0°) at edge
-  const hue = Math.max(0, 120 - absFrac * 130);
-  const sat = 55 + absFrac * 20;
-  const lit = 45 + (1 - absFrac) * 10;
-  const col = `hsl(${hue},${sat}%,${lit}%)`;
-
-  // Fill the track from center toward needle
-  const fillStart = Math.min(cx, needleX);
-  const fillEnd   = Math.max(cx, needleX);
-  const grad = ctx.createLinearGradient(fillStart, 0, fillEnd, 0);
-  if (pos < 0) { grad.addColorStop(0, col); grad.addColorStop(1, '#2a2a2a'); }
-  else         { grad.addColorStop(0, '#2a2a2a'); grad.addColorStop(1, col); }
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.roundRect(fillStart, barY, fillEnd - fillStart || 1, barH, 1);
-  ctx.fill();
-
-  // Center tick
-  ctx.fillStyle = '#3a3a3a';
-  ctx.fillRect(cx - 1, barY - 3, 2, barH + 6);
-
-  // Needle head
-  const nR = 7;
-  ctx.beginPath();
-  ctx.arc(needleX, H / 2, nR, 0, Math.PI * 2);
-
-  // Glow when in tune
-  if (inTune) {
-    ctx.shadowColor = col;
-    ctx.shadowBlur  = 10;
-  }
-  ctx.fillStyle = col;
-  ctx.fill();
-  ctx.shadowBlur = 0;
-
-  // Needle border
-  ctx.strokeStyle = 'rgba(0,0,0,0.4)';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-}
-
+// ── Listen display ───────────────────────────────────────────────
 function resetListenDisplay() {
   document.querySelectorAll('.string-col').forEach(col => {
     col.classList.remove('detected-in-tune','detected-flat','detected-sharp');
     const cur = col.querySelector('.col-cursor');
     if (cur) cur.style.left = '50%';
   });
-  needleTarget = 0;
-  needleActive = false;
+  isInTune = false;
 }
 
 function updateListenDisplay(freq) {
   const match = findClosestString(freq);
   if (!match) return;
   const cents = match.cents, absCents = Math.abs(cents);
-  const inTune = absCents <= CENTS_IN_TUNE;
-  const state  = inTune ? 'detected-in-tune' : cents < 0 ? 'detected-flat' : 'detected-sharp';
+
+  // Hysteresis: enter green at ±3¢, exit only past ±6¢
+  if (!isInTune && absCents <= CENTS_ENTER) isInTune = true;
+  if (isInTune && absCents > CENTS_EXIT)   isInTune = false;
+
+  const state = isInTune ? 'detected-in-tune' : cents < 0 ? 'detected-flat' : 'detected-sharp';
   const clamped = Math.max(-CENTS_RANGE, Math.min(CENTS_RANGE, cents));
   const pct = 50 + (clamped / CENTS_RANGE) * 50;
 
@@ -845,35 +670,91 @@ function updateListenDisplay(freq) {
     if (cur) cur.style.left = isMatch ? pct+'%' : '50%';
   });
 
-  // Drive needle (-1 to +1)
   needleTarget = Math.max(-1, Math.min(1, cents / CENTS_RANGE));
   needleActive = true;
 }
 
-// ── Mode switch ──────────────────────────────────────────────────
-function switchMode(m) {
-  mode = m;
-  document.getElementById('btn-play').classList.toggle('active', m==='play');
-  document.getElementById('btn-listen').classList.toggle('active', m==='listen');
-  document.querySelectorAll('.string-col').forEach(col => {
-    col.classList.toggle('play-mode', m==='play');
-    col.classList.toggle('listen-mode', m==='listen');
-  });
-
-  if (m === 'listen') {
-    stopCurrent();
-    startNeedleLoop();
-    startListening();
-  } else {
-    stopListening();
-    setStatusDot('play');
-    setStatusText('Press a string to play a reference tone');
-    needleTarget = 0; needleActive = false;
+// ── Needle canvas ────────────────────────────────────────────────
+function startNeedleLoop() {
+  if (needleAnimId) return;
+  function loop() {
+    needleAnimId = requestAnimationFrame(loop);
+    needlePos += (needleTarget - needlePos) * 0.10;
+    drawNeedle(needlePos, needleActive);
   }
+  loop();
 }
 
-document.getElementById('btn-play').addEventListener('click',   () => switchMode('play'));
-document.getElementById('btn-listen').addEventListener('click', () => switchMode('listen'));
+function drawNeedle(pos, active) {
+  const canvas = document.getElementById('needle-canvas');
+  if (!canvas) return;
+  const W = canvas.offsetWidth;
+  if (!W) return;
+  if (canvas.width !== W) canvas.width = W;
+  const H = canvas.height;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const cx = W / 2;
+  const barH = 3;
+  const barY = H / 2 - barH / 2;
+  const pad  = 24;
+  const barW = W - pad * 2;
+
+  // Track background
+  ctx.fillStyle = '#1a1a1a';
+  ctx.beginPath();
+  ctx.roundRect(pad, barY, barW, barH, 2);
+  ctx.fill();
+
+  if (!active) {
+    // idle: just center tick
+    ctx.fillStyle = '#333';
+    ctx.fillRect(cx - 1, barY - 4, 2, barH + 8);
+    return;
+  }
+
+  const needleX  = cx + pos * (barW / 2);
+  const absFrac  = Math.abs(pos);
+
+  // Color: sharply green near center, fast ramp to red
+  // Use a squared curve so it goes red quickly outside the in-tune zone
+  const inTuneFrac = CENTS_ENTER / CENTS_RANGE; // ~0.03
+  const t = Math.min(1, (absFrac - inTuneFrac) / (0.15 - inTuneFrac));
+  const hue  = isInTune ? 142 : Math.max(0, 142 - t * 142);
+  const sat  = 50 + (1 - absFrac) * 15;
+  const lit  = 44 + (1 - absFrac) * 8;
+  const col  = `hsl(${hue},${sat}%,${lit}%)`;
+
+  // Fill from center to needle
+  const fillL = Math.min(cx, needleX);
+  const fillR = Math.max(cx, needleX);
+  if (fillR - fillL > 0.5) {
+    const grad = ctx.createLinearGradient(fillL, 0, fillR, 0);
+    if (pos < 0) { grad.addColorStop(0, col); grad.addColorStop(1, '#222'); }
+    else         { grad.addColorStop(0, '#222'); grad.addColorStop(1, col); }
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(fillL, barY, fillR - fillL, barH, 1);
+    ctx.fill();
+  }
+
+  // Center tick
+  ctx.fillStyle = '#3a3a3a';
+  ctx.fillRect(cx - 1, barY - 5, 2, barH + 10);
+
+  // Needle dot
+  const nR = 8;
+  ctx.beginPath();
+  ctx.arc(needleX, H / 2, nR, 0, Math.PI * 2);
+  if (isInTune) { ctx.shadowColor = col; ctx.shadowBlur = 12; }
+  ctx.fillStyle = col;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
 
 // ── Concert pitch ────────────────────────────────────────────────
 const hzInput    = document.getElementById('hz-input');
@@ -919,7 +800,7 @@ function setOctave(steps) {
 document.getElementById('oct-up').addEventListener('click',   () => setOctave(octaveOffset+1));
 document.getElementById('oct-down').addEventListener('click', () => setOctave(octaveOffset-1));
 
-// ── String grid ──────────────────────────────────────────────────
+// ── Strings ──────────────────────────────────────────────────────
 function refreshFreqLabels() {
   document.querySelectorAll('.string-col').forEach(col => {
     const i=Number(col.dataset.idx), s=activeTuning[i];
@@ -934,7 +815,7 @@ function renderStrings() {
   activeTuning.forEach((s, i) => {
     const freq = noteFreq(s.note, s.oct, a4, octMult);
     const col  = document.createElement('div');
-    col.className = 'string-col '+(mode==='play'?'play-mode':'listen-mode');
+    col.className = 'string-col';
     col.dataset.idx = i;
     col.innerHTML = `
       <div class="string-inner">
@@ -947,10 +828,7 @@ function renderStrings() {
         <div class="col-center"></div>
         <div class="col-cursor"></div>
       </div>`;
-    col.addEventListener('click', () => {
-      if (mode !== 'play') return;
-      playingIdx === i ? stopCurrent() : playString(i);
-    });
+    col.addEventListener('click', () => onStringTap(i));
     grid.appendChild(col);
   });
 }
@@ -1022,10 +900,9 @@ function addPreset() {
 // ── Init ─────────────────────────────────────────────────────────
 renderStrings();
 selectPreset(0);
-requestAnimationFrame(() => {
-  setA4(DEFAULT_A4, 'init');
-  startNeedleLoop(); // draw idle state immediately
-});
+requestAnimationFrame(() => setA4(DEFAULT_A4, 'init'));
+startNeedleLoop();
+startMic();
 </script>
 </body>
 </html>
