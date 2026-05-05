@@ -277,15 +277,16 @@
     font-size: 10px; color: var(--muted); letter-spacing: 0.07em; flex: 1;
   }
 
-  /* ── CENTS ROW (always present) ── */
-  .cents-row {
-    display: flex; align-items: center; justify-content: center;
-    padding: 7px 16px; border-top: 1px solid var(--border);
-    font-size: 11px; color: var(--muted); letter-spacing: 0.06em;
-    min-height: 32px;
+  /* ── NEEDLE BAR ── */
+  .needle-bar-wrap {
+    border-top: 1px solid var(--border);
+    padding: 0;
+    background: var(--surface);
   }
-  .cents-row.in-tune { color: var(--accent2); }
-  .cents-row.off     { color: var(--red); }
+  #needle-canvas {
+    display: block;
+    width: 100%;
+  }
 
   /* ── PRESETS ── */
   .preset-tabs {
@@ -419,8 +420,10 @@
 
     <div class="strings-grid" id="strings-grid"></div>
 
-    <!-- Always-visible cents bar -->
-    <div class="cents-row" id="cents-row">—</div>
+    <!-- Needle tuning bar -->
+    <div class="needle-bar-wrap">
+      <canvas id="needle-canvas" height="36"></canvas>
+    </div>
 
     <!-- Always-visible status row -->
     <div class="status-row">
@@ -445,7 +448,7 @@ const FADE_OUT      = 0.09;
 const DEFAULT_A4    = 440;
 const SLIDER_MIN    = 400;
 const SLIDER_MAX    = 480;
-const CENTS_IN_TUNE = 2;
+const CENTS_IN_TUNE = 5;
 const CENTS_RANGE   = 100;
 
 const DEFAULT_PRESETS = [
@@ -490,12 +493,24 @@ function noteFreq(name, octave, refA4, mult) {
 function freqToCents(det, tgt) { return 1200 * Math.log2(det / tgt); }
 
 function findClosestString(freq) {
-  let best = null, bestAbs = Infinity;
+  // Build candidate list: for each string, also consider octave multiples
+  // but strongly prefer the actual string octave.
+  // This prevents high E (E4) from being misread as low E (E2).
+  let best = null, bestScore = Infinity;
+
   activeTuning.forEach((s, i) => {
-    for (let sh = -2; sh <= 2; sh++) {
+    // Only check the exact string octave and ±1 octave (not ±2)
+    for (let sh = -1; sh <= 1; sh++) {
       const target = noteFreq(s.note, s.oct + sh, a4, 1);
       const cents  = freqToCents(freq, target);
-      if (Math.abs(cents) < bestAbs) { bestAbs = Math.abs(cents); best = { idx:i, string:s, target, cents }; }
+      const absCents = Math.abs(cents);
+      // Add a penalty for octave shifts — prefer the nominal octave
+      const penalty = sh === 0 ? 0 : 50;
+      const score = absCents + penalty;
+      if (score < bestScore) {
+        bestScore = score;
+        best = { idx:i, string:s, target, cents };
+      }
     }
   });
   return best;
@@ -707,14 +722,110 @@ function setStatusText(txt) {
   document.getElementById('status-text').textContent = txt;
 }
 
+// ── Needle bar ───────────────────────────────────────────────────
+let needlePos    = 0;    // current smoothed position (-1 to +1)
+let needleTarget = 0;
+let needleAnimId = null;
+let needleActive = false;
+
+function startNeedleLoop() {
+  if (needleAnimId) return;
+  function loop() {
+    needleAnimId = requestAnimationFrame(loop);
+    needlePos += (needleTarget - needlePos) * 0.12;
+    drawNeedle(needlePos, needleActive);
+  }
+  loop();
+}
+
+function stopNeedleLoop() {
+  cancelAnimationFrame(needleAnimId);
+  needleAnimId = null;
+  drawNeedle(0, false);
+}
+
+function drawNeedle(pos, active) {
+  const canvas = document.getElementById('needle-canvas');
+  if (!canvas) return;
+  const W = canvas.offsetWidth || 300;
+  if (canvas.width !== W) canvas.width = W;
+  const H = canvas.height;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const cx = W / 2;
+  const barH = 4;
+  const barY = H / 2 - barH / 2;
+  const barMargin = 20;
+  const barW = W - barMargin * 2;
+
+  // Background track
+  ctx.fillStyle = '#1f1f1f';
+  ctx.beginPath();
+  ctx.roundRect(barMargin, barY, barW, barH, 2);
+  ctx.fill();
+
+  if (!active) {
+    // Idle: just a center tick
+    ctx.fillStyle = '#2a2a2a';
+    ctx.fillRect(cx - 1, barY - 2, 2, barH + 4);
+    return;
+  }
+
+  // Color gradient fill from center to needle
+  const needleX = cx + pos * (barW / 2);
+  const absFrac = Math.abs(pos); // 0=center, 1=edge
+  const inTune  = absFrac <= (CENTS_IN_TUNE / CENTS_RANGE);
+
+  // Hue: green (120°) at center → red (0°) at edge
+  const hue = Math.max(0, 120 - absFrac * 130);
+  const sat = 55 + absFrac * 20;
+  const lit = 45 + (1 - absFrac) * 10;
+  const col = `hsl(${hue},${sat}%,${lit}%)`;
+
+  // Fill the track from center toward needle
+  const fillStart = Math.min(cx, needleX);
+  const fillEnd   = Math.max(cx, needleX);
+  const grad = ctx.createLinearGradient(fillStart, 0, fillEnd, 0);
+  if (pos < 0) { grad.addColorStop(0, col); grad.addColorStop(1, '#2a2a2a'); }
+  else         { grad.addColorStop(0, '#2a2a2a'); grad.addColorStop(1, col); }
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.roundRect(fillStart, barY, fillEnd - fillStart || 1, barH, 1);
+  ctx.fill();
+
+  // Center tick
+  ctx.fillStyle = '#3a3a3a';
+  ctx.fillRect(cx - 1, barY - 3, 2, barH + 6);
+
+  // Needle head
+  const nR = 7;
+  ctx.beginPath();
+  ctx.arc(needleX, H / 2, nR, 0, Math.PI * 2);
+
+  // Glow when in tune
+  if (inTune) {
+    ctx.shadowColor = col;
+    ctx.shadowBlur  = 10;
+  }
+  ctx.fillStyle = col;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Needle border
+  ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
 function resetListenDisplay() {
   document.querySelectorAll('.string-col').forEach(col => {
     col.classList.remove('detected-in-tune','detected-flat','detected-sharp');
     const cur = col.querySelector('.col-cursor');
     if (cur) cur.style.left = '50%';
   });
-  const cr = document.getElementById('cents-row');
-  cr.textContent = '—'; cr.className = 'cents-row';
+  needleTarget = 0;
+  needleActive = false;
 }
 
 function updateListenDisplay(freq) {
@@ -734,12 +845,9 @@ function updateListenDisplay(freq) {
     if (cur) cur.style.left = isMatch ? pct+'%' : '50%';
   });
 
-  const cr = document.getElementById('cents-row');
-  if (inTune) { cr.textContent = '✓ in tune'; cr.className = 'cents-row in-tune'; }
-  else {
-    cr.textContent = (cents<0?'−':'+')+absCents.toFixed(1)+' ¢  '+(cents<0?'flat':'sharp');
-    cr.className = 'cents-row off';
-  }
+  // Drive needle (-1 to +1)
+  needleTarget = Math.max(-1, Math.min(1, cents / CENTS_RANGE));
+  needleActive = true;
 }
 
 // ── Mode switch ──────────────────────────────────────────────────
@@ -754,14 +862,13 @@ function switchMode(m) {
 
   if (m === 'listen') {
     stopCurrent();
+    startNeedleLoop();
     startListening();
   } else {
     stopListening();
     setStatusDot('play');
     setStatusText('Press a string to play a reference tone');
-    // reset cents row to idle
-    const cr = document.getElementById('cents-row');
-    cr.textContent = '—'; cr.className = 'cents-row';
+    needleTarget = 0; needleActive = false;
   }
 }
 
@@ -915,7 +1022,10 @@ function addPreset() {
 // ── Init ─────────────────────────────────────────────────────────
 renderStrings();
 selectPreset(0);
-requestAnimationFrame(() => setA4(DEFAULT_A4, 'init'));
+requestAnimationFrame(() => {
+  setA4(DEFAULT_A4, 'init');
+  startNeedleLoop(); // draw idle state immediately
+});
 </script>
 </body>
 </html>
