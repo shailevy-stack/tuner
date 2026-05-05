@@ -45,10 +45,7 @@
   header {
     text-align: center;
     margin-bottom: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
+    position: relative;
     width: 100%;
     max-width: 560px;
   }
@@ -64,8 +61,9 @@
   #reload-btn {
     background: none; border: 1px solid var(--border); border-radius: 2px;
     color: var(--muted); font-size: 16px; width: 36px; height: 36px;
-    cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+    cursor: pointer; transition: all 0.15s;
     display: flex; align-items: center; justify-content: center;
+    position: absolute; right: 0; top: 50%; transform: translateY(-50%);
   }
   #reload-btn:hover { color: var(--accent); border-color: var(--accent); }
 
@@ -504,6 +502,7 @@ function stopCurrent() {
   document.querySelector(`.string-col[data-idx="${playingIdx}"]`)?.classList.remove('playing');
   cancelAnimationFrame(waveAnimId);
   waveAnimId = null; playingIdx = null; playingNode = null;
+  muteMicBriefly();
 }
 
 function updateLiveFreq() {
@@ -531,17 +530,30 @@ function onStringTap(idx) {
     stopCurrent();
     resetListenDisplay();
     needleTarget = 0; needleActive = false;
+    smoothedFreq = null; stableCount = 0; lastRawFreq = null;
   } else {
     // stop anything playing, play this string
     stopCurrent();
-    resetListenDisplay();
+    resetListenDisplay();  // clear any detected highlights immediately
     needleTarget = 0; needleActive = false;
+    smoothedFreq = null; stableCount = 0; lastRawFreq = null;
     playString(idx);
   }
 }
 
 // ── Mic / pitch detection ────────────────────────────────────────
+let micMuted = false;     // brief mute after playback stops to avoid feedback
+let micMuteTimer = null;
+
+function muteMicBriefly() {
+  micMuted = true;
+  clearTimeout(micMuteTimer);
+  micMuteTimer = setTimeout(() => { micMuted = false; }, 400);
+}
+
 async function startMic() {
+  // Stop any existing stream first
+  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; analyser = null; }
   try {
     const ctx = getCtx();
     if (ctx.state === 'suspended') ctx.resume();
@@ -552,11 +564,23 @@ async function startMic() {
     analyser.smoothingTimeConstant = 0.0;
     listenBuf = new Float32Array(analyser.fftSize);
     source.connect(analyser);
-    runPitchDetection();
+    if (!listenAnimId) runPitchDetection();
   } catch(e) {
     console.warn('Mic access denied:', e);
   }
 }
+
+// Re-init mic when page becomes visible again (after backgrounding)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    const ctx = getCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+    if (!micStream || micStream.getTracks().some(t => t.readyState === 'ended')) {
+      startMic();
+    }
+    requestWakeLock();
+  }
+});
 
 function detectPitch(buf, sampleRate) {
   const n = buf.length;
@@ -614,8 +638,8 @@ const STABLE_FRAMES = 3;
 function runPitchDetection() {
   function tick() {
     listenAnimId = requestAnimationFrame(tick);
-    // Don't process while a reference tone is playing
-    if (playingNode || !analyser) return;
+    // Don't process while a reference tone is playing or briefly after it stops
+    if (playingNode || micMuted || !analyser) return;
 
     analyser.getFloatTimeDomainData(listenBuf);
     const freq = detectPitch(listenBuf, getCtx().sampleRate);
@@ -897,12 +921,23 @@ function addPreset() {
   presets.push(p); savePresets(); selectPreset(presets.length-1);
 }
 
+// ── Wake Lock ────────────────────────────────────────────────────
+let wakeLock = null;
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    if (wakeLock && wakeLock.released === false) return; // already held
+    wakeLock = await navigator.wakeLock.request('screen');
+  } catch(e) { /* silently fail */ }
+}
+
 // ── Init ─────────────────────────────────────────────────────────
 renderStrings();
 selectPreset(0);
 requestAnimationFrame(() => setA4(DEFAULT_A4, 'init'));
 startNeedleLoop();
 startMic();
+requestWakeLock();
 </script>
 </body>
 </html>
