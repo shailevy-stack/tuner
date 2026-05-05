@@ -182,7 +182,6 @@
     cursor: pointer;
   }
   .string-col:last-child { border-right: none; }
-  .string-col:hover { background: var(--surface2); }
 
   /* Playing state */
   .string-col.playing { background: rgba(200,169,110,0.07); }
@@ -527,16 +526,13 @@ function startWave(idx) {
 function onStringTap(idx) {
   if (playingIdx === idx) {
     // currently playing this string — stop and return to listen
+    // resetListenDisplay + state clear happens inside muteMicBriefly (called by stopCurrent)
+    stopCurrent();
+  } else {
+    // stop anything playing, immediately clear highlights, then play
     stopCurrent();
     resetListenDisplay();
     needleTarget = 0; needleActive = false;
-    smoothedFreq = null; stableCount = 0; lastRawFreq = null;
-  } else {
-    // stop anything playing, play this string
-    stopCurrent();
-    resetListenDisplay();  // clear any detected highlights immediately
-    needleTarget = 0; needleActive = false;
-    smoothedFreq = null; stableCount = 0; lastRawFreq = null;
     playString(idx);
   }
 }
@@ -548,7 +544,13 @@ let micMuteTimer = null;
 function muteMicBriefly() {
   micMuted = true;
   clearTimeout(micMuteTimer);
-  micMuteTimer = setTimeout(() => { micMuted = false; }, 400);
+  // On mute end: force-clear all column highlights and reset detector state
+  micMuteTimer = setTimeout(() => {
+    micMuted = false;
+    smoothedFreq = null; stableCount = 0; lastRawFreq = null; isInTune = false;
+    resetListenDisplay();
+    needleTarget = 0; needleActive = false;
+  }, 400);
 }
 
 async function startMic() {
