@@ -567,6 +567,7 @@ async function startMic() {
     listenBuf = new Float32Array(analyser.fftSize);
     source.connect(analyser);
     if (!listenAnimId) runPitchDetection();
+    requestWakeLock(); // keep screen awake while mic is active
   } catch(e) {
     console.warn('Mic access denied:', e);
   }
@@ -930,7 +931,17 @@ async function requestWakeLock() {
   try {
     if (wakeLock && wakeLock.released === false) return; // already held
     wakeLock = await navigator.wakeLock.request('screen');
-  } catch(e) { /* silently fail */ }
+    // Re-request automatically if the system forcibly releases the lock
+    // (e.g. battery saver, tab moved to background by OS, etc.)
+    wakeLock.addEventListener('release', () => {
+      if (document.visibilityState === 'visible') {
+        // Page is still visible — try to reclaim the lock
+        requestWakeLock();
+      }
+      // If the page is hidden the visibilitychange handler will re-request
+      // once the user returns to the tab.
+    });
+  } catch(e) { /* silently fail — e.g. browser doesn't support or denies */ }
 }
 
 // ── Init ─────────────────────────────────────────────────────────
